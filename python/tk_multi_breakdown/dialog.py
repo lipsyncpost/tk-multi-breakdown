@@ -11,6 +11,7 @@
 import tank
 import copy
 import os
+import re
 import sys
 import threading
 
@@ -82,17 +83,39 @@ class AppDialog(QtGui.QWidget):
             if latest_version is None:
                 continue
 
-            # calculate path based on latest version
-            new_fields = copy.deepcopy(x.data["fields"])
-            new_fields["version"] = latest_version
-            new_path = x.data["template"].apply_fields(new_fields)
+            # calculate path based on latest version using templates and fields
+            if x.data["fields"] is not None and x.data["template"] is not None:
+                new_fields = copy.deepcopy(x.data["fields"])
+                new_fields["version"] = latest_version
+                new_path = x.data["template"].apply_fields(new_fields)
+            else:
+            # calculate path using the Shotgun Publish Data
+                sg_filter = [['project', 'is', x.data["sg_data"]['project']],
+                             ['entity', 'is', x.data["sg_data"]['entity']],
+                             ['task', 'is', x.data["sg_data"]['task']],
+                             ['name', 'is', x.data["sg_data"]['name']]
+                            ]
+                sg_fields = ['path', 'path_cache', 'entity', 'name', 'version_number']
 
-            d = {}
-            d["node"] = x.data["node_name"]
-            d["type"] = x.data["node_type"]
-            d["path"] = new_path
+                pf_list = self._app.shotgun.find('PublishedFile', sg_filter, sg_fields)
 
-            data.append(d)
+                # get the latest version
+                if len(pf_list):
+                    for p in pf_list:
+                        if p.get('version_number') == latest_version:
+                            new_path = p["path"]["local_path"]
+                            break
+
+            if new_path:
+                # check for UDIM
+                if x.data["sg_data"]['published_file_type']['name'] == "UDIM Image":
+                    seq_pattern = re.compile(r'(\%+\d+d)|(#+)|(@+)')
+                    new_path = seq_pattern.sub('<UDIM>', new_path)
+                d = {}
+                d["node"] = x.data["node_name"]
+                d["type"] = x.data["node_type"]
+                d["path"] = new_path
+                data.append(d)
 
         # call out to hook
         self._app.execute_hook_method("hook_scene_operations", "update", items=data)
