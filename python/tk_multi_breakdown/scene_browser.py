@@ -114,9 +114,9 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
                     if d["sg_data"] is not None:
                         sg_data = d["sg_data"]
                         # print "SG_DATA: {}".format(sg_data)
-                        task = sg_data.get("task")
-                        if task:                        
-                            details.append( self._make_row("Item", "%s, Version %d, %s Task" % (sg_data["name"], sg_data["version_number"], task["name"])) )
+                        step = sg_data.get("task.Task.step.Step.code", None)
+                        if step is not None:                        
+                            details.append( self._make_row("Item", "%s, Version %d, %s Task" % (sg_data["name"], sg_data["version_number"], step)) )
                         else:
                             details.append( self._make_row("Item", "%s, Version %d" % (sg_data["name"], sg_data["version_number"])) )
 

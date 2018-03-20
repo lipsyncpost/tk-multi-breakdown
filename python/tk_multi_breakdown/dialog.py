@@ -93,6 +93,7 @@ class AppDialog(QtGui.QWidget):
                 sg_filter = [['project', 'is', x.data["sg_data"]['project']],
                              ['entity', 'is', x.data["sg_data"]['entity']],
                              ['task', 'is', x.data["sg_data"]['task']],
+                             ['published_file_type', 'is', x.data["sg_data"]['published_file_type']],
                              ['name', 'is', x.data["sg_data"]['name']]
                             ]
                 sg_fields = ['path', 'path_cache', 'entity', 'name', 'version_number']

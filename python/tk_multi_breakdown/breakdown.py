@@ -173,6 +173,7 @@ def get_breakdown_items():
               "image",
               "name",
               "task",
+              "task.Task.step.Step.code",
               "version_number",
               "project"
               ]
@@ -261,6 +262,7 @@ def compute_highest_version(template, curr_fields, sg_data=None):
             sg_filter = [['project', 'is', sg_data['project']],
                          ['entity', 'is', sg_data['entity']],
                          ['task', 'is', sg_data['task']],
+                         ['published_file_type', 'is', sg_data['published_file_type']],
                          ['name', 'is', sg_data['name']]
                         ]
             sg_fields = ['path', 'path_cache', 'entity', 'name', 'version_number']
