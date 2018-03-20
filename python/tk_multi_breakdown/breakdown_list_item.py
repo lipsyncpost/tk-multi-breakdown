@@ -72,8 +72,8 @@ class BreakdownListItem(browser_widget.ListItem):
         """
 
         # we can only process stuff with a version
-        if "version" not in fields:
-            raise Exception("Fields must have a version!")
+        # if "version" not in fields:
+        #     raise Exception("Fields must have a version!")
 
         # start spinner
         self._timer.start(100)
@@ -120,15 +120,14 @@ class BreakdownListItem(browser_widget.ListItem):
             else:
                 output["thumbnail"] = ":/res/no_thumb.png"
 
+            # first, get the latest available version for this item
+            latest_version = breakdown.compute_highest_version(self._template, self._fields, self._sg_data)
 
-        # first, get the latest available version for this item
-        latest_version = breakdown.compute_highest_version(self._template, self._fields)
+            current_version = self._sg_data["version_number"]
+            output["up_to_date"] = (latest_version == current_version)
 
-        current_version = self._fields["version"]
-        output["up_to_date"] = (latest_version == current_version)
-
-        self._latest_version = latest_version
-        self._is_latest = output["up_to_date"]
+            self._latest_version = latest_version
+            self._is_latest = output["up_to_date"]
 
         return output
 
@@ -144,7 +143,6 @@ class BreakdownListItem(browser_widget.ListItem):
         # show error message
         self._app.log_warning("Worker error: %s" % msg)
 
-
     def _on_worker_task_complete(self, uid, data):
         """
         Called when the computation is complete and we should update widget
@@ -156,19 +154,20 @@ class BreakdownListItem(browser_widget.ListItem):
         # stop spin
         self._timer.stop()
 
-        # set thumbnail
-        if data.get("thumbnail"):
-            self.ui.thumbnail.setPixmap(QtGui.QPixmap(data.get("thumbnail")))
+        if data:
+            # set thumbnail
+            if data.get("thumbnail"):
+                self.ui.thumbnail.setPixmap(QtGui.QPixmap(data.get("thumbnail")))
 
-        # set light - red or green
-        if data["up_to_date"]:
-            icon = self._green_pixmap
-        else:
-            icon = self._red_pixmap
-        self.ui.light.setPixmap(icon)
+            # set light - red or green
+            if data["up_to_date"]:
+                icon = self._green_pixmap
+            else:
+                icon = self._red_pixmap
+            self.ui.light.setPixmap(icon)
 
-        # figure out if this item should be hidden
-        if data["up_to_date"] == True and self._show_green == False:
-            self.setVisible(False)
-        if data["up_to_date"] == False and self._show_red == False:
-            self.setVisible(False)
+            # figure out if this item should be hidden
+            if data["up_to_date"] == True and self._show_green == False:
+                self.setVisible(False)
+            if data["up_to_date"] == False and self._show_red == False:
+                self.setVisible(False)

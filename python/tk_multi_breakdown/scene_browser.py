@@ -28,6 +28,7 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
 
     def __init__(self, parent=None):
         browser_widget.BrowserWidget.__init__(self, parent)
+        self._app = self.parent
 
     def get_data(self, data):
         items = breakdown.get_breakdown_items()        
@@ -79,7 +80,6 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
                     groups[OTHER_ITEMS] = []
                 groups[OTHER_ITEMS].append(d)
 
-
         ################################################################################
         # PASS 2 - display the content of all groups
 
@@ -104,45 +104,50 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
                 i.data = {"node_name": d["node_name"],
                           "node_type": d["node_type"],
                           "template": d["template"],
-                          "fields": d["fields"] }
+                          "fields": d["fields"], 
+                          "sg_data": d.get("sg_data", None)}
 
                 # populate the description
                 details = []
 
+                if "sg_data" in d:
+                    if d["sg_data"] is not None:
+                        sg_data = d["sg_data"]
+                        # print "SG_DATA: {}".format(sg_data)
+                        task = sg_data.get("task")
+                        if task:                        
+                            details.append( self._make_row("Item", "%s, Version %d, %s Task" % (sg_data["name"], sg_data["version_number"], task["name"])) )
+                        else:
+                            details.append( self._make_row("Item", "%s, Version %d" % (sg_data["name"], sg_data["version_number"])) )
 
-                if d.get("sg_data"):
+                        # see if this publish is associated with an entity
+                        linked_entity = sg_data.get("entity")
+                        if linked_entity:
+                            details.append( self._make_row(linked_entity["type"], linked_entity["name"]) )
 
-                    sg_data = d["sg_data"]
-
-                    details.append( self._make_row("Item", "%s, Version %d" % (sg_data["name"], sg_data["version_number"]) ) )
-
-                    # see if this publish is associated with an entity
-                    linked_entity = sg_data.get("entity")
-                    if linked_entity:
-                        details.append( self._make_row(linked_entity["type"], linked_entity["name"]) )
-
-                    # does it have a tank type ?
-                    if sg_data.get(published_file_type_field):
-                        details.append( self._make_row("Type", sg_data.get(published_file_type_field).get("name")))
-
-                    details.append( self._make_row("Node", d["node_name"]))
-
-
+                        # does it have a tank type ?
+                        if sg_data.get(published_file_type_field):
+                            details.append( self._make_row("Type", sg_data.get(published_file_type_field).get("name")))
                 else:
+                    if d["fields"] is not None:
+                        details.append(self._make_row("Version", d["fields"]["version"] ))
 
-                    details.append(self._make_row("Version", d["fields"]["version"] ))
+                        # display some key fields in the widget
+                        # todo: make this more generic?
+                        relevant_fields = ["Shot", "Asset", "Step", "Sequence", "name"]
 
-                    # display some key fields in the widget
-                    # todo: make this more generic?
-                    relevant_fields = ["Shot", "Asset", "Step", "Sequence", "name"]
-
-                    for (k,v) in d["fields"].items():
-                        # only show relevant fields - a bit of a hack
-                        if k in relevant_fields:
-                            details.append( self._make_row(k,v) )
-
-                    details.append( self._make_row("Node", d["node_name"]))
-
+                        for (k,v) in d["fields"].items():
+                            # only show relevant fields - a bit of a hack
+                            if k in relevant_fields:
+                                details.append( self._make_row(k,v) )
+               
+                # add full path for for everything not published
+                if not details:
+                    details.append( self._make_row("Path", d["path"]))
+                # else:
+                #     details.append( self._make_row("File", os.path.basename(d["path"])))
+                
+                details.append( self._make_row("Node", d["node_name"]))
                 inner = "".join(details)
 
                 i.set_details("<table>%s</table>" % inner)
@@ -153,4 +158,4 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
                                    d["fields"],
                                    result["show_red"],
                                    result["show_green"],
-                                   d.get("sg_data"))
+                                   d.get("sg_data", None))

@@ -14,6 +14,7 @@ import urllib
 import shutil
 import sys
 import tank
+import json
 
 from tank import TankError
 
@@ -87,18 +88,23 @@ def get_breakdown_items():
     # returns a list of dictionaries, each dict being like this:
     # {"node": node_name, "type": "reference", "path": maya_path}
 
-
     for scene_object in scene_objects:
 
         node_name = scene_object.get("node")
         node_type = scene_object.get("type")
         file_name = scene_object.get("path").replace("/", os.path.sep)
 
+        #print "node: {}, type: {}, path: {}".format(node_name, node_type, file_name)
+
         # see if this read node matches any path in the templates setup
-        matching_template = app.tank.template_from_path(file_name)
+        try:
+            matching_template = app.tank.template_from_path(file_name)
+        except Exception as e:
+            # print e
+            matching_template = ""
+            pass
 
         if matching_template:
-
             # see if we have a version number
             fields = matching_template.get_fields(file_name)
             if VERSION_KEY in fields:
@@ -129,8 +135,18 @@ def get_breakdown_items():
                 item["fields"] = fields
                 item["sg_data"] = None
 
-
                 # store the normalized fields in dict
+                items.append(item)
+        else:
+            # if there is path, store it 
+            if file_name:
+                item = {}
+                item["path"] = file_name.replace("<UDIM>", "%04d")
+                item["node_name"] = node_name
+                item["node_type"] = node_type
+                item["template"] = None
+                item["fields"] = None
+                item["sg_data"] = None    
                 items.append(item)
 
     # now do a second pass on all the files that are valid to see if they are published
@@ -178,14 +194,15 @@ def get_breakdown_items():
             if item.get("path") == path:
                 item["sg_data"] = sg_chunk
 
+
     # we no longer need the path key in the dict, so get rid of it
-    for item in items:
-        del item["path"]
-
+    # for item in items:
+    #     del item["path"]
+    #print "ITEMS: {}".format(json.dumps(items, indent=4, sort_keys=True))
     return items
+ 
 
-
-def compute_highest_version(template, curr_fields):
+def compute_highest_version(template, curr_fields, sg_data=None):
     """
     Given a template and some fields, return the highest version number found on disk.
     The template key containing the version number is assumed to be named {version}.
@@ -194,47 +211,68 @@ def compute_highest_version(template, curr_fields):
     
     :param template: Template object to calculate for
     :param curr_fields: A complete set of fields for the template
+    :param sg_data: Shotgun publish data we have already gathered
     :returns: The highest version number found
     """
-    # set up the payload
-    output = {}
-
-    # calculate visibility
-    # check if this is the latest item
-
-    # note - have to do some tricks here to get sequences and stereo working
-    # need to fix this in Tank platform
-
-    # get all eyes, all frames and all versions
-    # potentially a HUGE glob, so may be slow...
-    # todo: better support for sequence iterations
-    #       by using the abstract iteration methods
-    
-    # first, find all abstract (Sequence) keys from the template:
-    abstract_keys = set()
-    for key_name, key in template.keys.iteritems():
-        if key.is_abstract:
-            abstract_keys.add(key_name)
-
-    # skip keys are all abstract keys + 'version' & 'eye'
-    skip_keys = [k for k in abstract_keys] + [VERSION_KEY, "eye"]
-
-    # then find all files, skipping these keys
     app = tank.platform.current_bundle()
-    all_versions = app.tank.paths_from_template(template, curr_fields, skip_keys=skip_keys)
+    highest_version = -1
 
-    # if we didn't find anything then something has gone wrong with our 
-    # logic as we should have at least one file so error out:
-    # TODO - this should be handled more cleanly!
-    if not all_versions:
-        raise TankError("Failed to find any files!")        
-    
-    # now look for the highest version number...
-    highest_version = 0
-    for ver in all_versions:
-        curr_fields = template.get_fields(ver)
-        if curr_fields[VERSION_KEY] > highest_version:
-            highest_version = curr_fields[VERSION_KEY]
+    if template is not None:
+        # set up the payload
+        output = {}
+
+        # calculate visibility
+        # check if this is the latest item
+
+        # note - have to do some tricks here to get sequences and stereo working
+        # need to fix this in Tank platform
+
+        # get all eyes, all frames and all versions
+        # potentially a HUGE glob, so may be slow...
+        # todo: better support for sequence iterations
+        #       by using the abstract iteration methods
+        
+        # first, find all abstract (Sequence) keys from the template:
+        abstract_keys = set()
+        for key_name, key in template.keys.iteritems():
+            if key.is_abstract:
+                abstract_keys.add(key_name)
+
+        # skip keys are all abstract keys + 'version' & 'eye'
+        skip_keys = [k for k in abstract_keys] + [VERSION_KEY, "eye"]
+
+        # then find all files, skipping these keys
+        all_versions = app.tank.paths_from_template(template, curr_fields, skip_keys=skip_keys)
+
+        # if we didn't find anything then something has gone wrong with our 
+        # logic as we should have at least one file so error out:
+        # TODO - this should be handled more cleanly!
+        if not all_versions:
+            raise TankError("Failed to find any files!")        
+        
+        # now look for the highest version number...
+        for ver in all_versions:
+            curr_fields = template.get_fields(ver)
+            if curr_fields[VERSION_KEY] > highest_version:
+                highest_version = curr_fields[VERSION_KEY]
+    else:
+        # we're getting the latest version directly from Shotgun using info Publish data
+        if sg_data is not None:
+            sg_filter = [['project', 'is', sg_data['project']],
+                         ['entity', 'is', sg_data['entity']],
+                         ['task', 'is', sg_data['task']],
+                         ['name', 'is', sg_data['name']]
+                        ]
+            sg_fields = ['path', 'path_cache', 'entity', 'name', 'version_number']
+
+            pf_list = app.shotgun.find('PublishedFile', sg_filter, sg_fields)
+
+            # now look for the highest version number...
+            if len(pf_list):
+                for p in pf_list:
+                    #print "PUBLISHES: {}".format(json.dumps(p, indent=4, sort_keys=True))
+                    version_number = p.get('version_number', -1)
+                    if version_number > highest_version:
+                        highest_version = version_number
 
     return highest_version
-    
