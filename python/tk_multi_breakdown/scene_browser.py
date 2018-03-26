@@ -103,9 +103,11 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
                 # the item object
                 i.data = {"node_name": d["node_name"],
                           "node_type": d["node_type"],
+                          "path": d["path"],
                           "template": d["template"],
                           "fields": d["fields"], 
-                          "sg_data": d.get("sg_data", None)}
+                          "sg_data": d.get("sg_data", None),
+                          "seq_str": d.get("seq_str", None)}
 
                 # populate the description
                 details = []
