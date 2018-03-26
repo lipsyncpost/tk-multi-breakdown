@@ -74,7 +74,6 @@ class AppDialog(QtGui.QWidget):
 
         data = []
         for x in curr_selection:
-
             if x.is_latest_version() is None or x.is_latest_version() == True:
                 # either unloaded or up to date
                 continue
@@ -82,6 +81,8 @@ class AppDialog(QtGui.QWidget):
             latest_version = x.get_latest_version_number()
             if latest_version is None:
                 continue
+
+            new_path = ""
 
             # calculate path based on latest version using templates and fields
             if x.data["fields"] is not None and x.data["template"] is not None:
@@ -100,18 +101,25 @@ class AppDialog(QtGui.QWidget):
 
                 pf_list = self._app.shotgun.find('PublishedFile', sg_filter, sg_fields)
 
-                # get the latest version
                 if len(pf_list):
+                    # get the latest version
                     for p in pf_list:
                         if p.get('version_number') == latest_version:
-                            new_path = p["path"]["local_path"]
-                            break
+                            # version up current path with the latest version number
+                            version_pattern = re.compile(r'[\/|\.|_]v(?P<version>\d+)')
+                            version_result = version_pattern.search(x.data['path'])
+                            if version_result:
+                                version_up_path = x.data['path'].replace(version_result.group('version'), str(latest_version).zfill(3))
+                                # if the version up path matches the latest path, we're good
+                                if version_up_path == p["path"]["local_path"]:
+                                    new_path = p["path"]["local_path"]
+                                    break
 
             if new_path:
-                # check for UDIM
-                if x.data["sg_data"]['published_file_type']['name'] == "UDIM Image":
-                    seq_pattern = re.compile(r'(\%+\d+d)|(#+)|(@+)')
-                    new_path = seq_pattern.sub('<UDIM>', new_path)
+                # replace normalized path pattern with what we gathered earlier or hashes
+                seq_pattern = re.compile(r'(\%+\d+d)')
+                if seq_pattern.search(new_path):
+                    new_path = seq_pattern.sub(x.data.get('seq_str', '####'), new_path)
                 d = {}
                 d["node"] = x.data["node_name"]
                 d["type"] = x.data["node_type"]

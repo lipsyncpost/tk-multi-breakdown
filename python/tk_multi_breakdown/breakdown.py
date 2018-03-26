@@ -10,6 +10,7 @@
 
 import urlparse
 import os
+import re
 import urllib
 import shutil
 import sys
@@ -141,7 +142,14 @@ def get_breakdown_items():
             # if there is path, store it 
             if file_name:
                 item = {}
-                item["path"] = file_name.replace("<UDIM>", "%04d")
+                seq_pat = re.compile(r'^.+\.(?P<seq>\<.+\>|\d+|#+)\..+$')
+                seq_pat_result = seq_pat.search(file_name)
+                if seq_pat_result:
+                    # normalizing path
+                    file_name = file_name.replace(seq_pat_result.group('seq'), '%04d')
+                    # store the seq pat str
+                    item['seq_str'] = seq_pat_result.group('seq')
+                item["path"] = file_name
                 item["node_name"] = node_name
                 item["node_type"] = node_type
                 item["template"] = None
@@ -166,7 +174,6 @@ def get_breakdown_items():
                 if item.get("path") == p:
                     item["sg_data"] = g_cached_sg_publish_data[p]
 
-
     fields = ["entity",
               "entity.Asset.sg_asset_type", # grab asset type if it is an asset
               "code",
@@ -182,9 +189,7 @@ def get_breakdown_items():
         fields.append("published_file_type")
     else:# == "TankPublishedFile"
         fields.append("tank_type")
-
     sg_data = tank.util.find_publish(app.tank, paths_to_fetch, fields=fields)
-
     # process and cache shotgun items
     for (path, sg_chunk) in sg_data.items():
         # cache item
