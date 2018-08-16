@@ -25,14 +25,13 @@ from .breakdown_list_item import BreakdownListItem
 
 class SceneBrowserWidget(browser_widget.BrowserWidget):
 
-
     def __init__(self, parent=None):
         browser_widget.BrowserWidget.__init__(self, parent)
         self._app = self.parent
 
     def get_data(self, data):
-        items = breakdown.get_breakdown_items()        
-        return {"items": items, "show_red": data["show_red"], "show_green": data["show_green"] }
+        items = breakdown.get_breakdown_items()
+        return {"items": items, "show_red": data["show_red"], "show_green": data["show_green"]}
 
     def _make_row(self, first, second):
         return "<tr><td><b>%s</b>&nbsp;&nbsp;&nbsp;</td><td>%s</td></tr>" % (first, second)
@@ -64,9 +63,9 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
                 asset_type = sg_data["entity.Asset.sg_asset_type"]
 
                 if asset_type:
-                    group = "%ss" % asset_type # eg. Characters
+                    group = "%ss" % asset_type  # eg. Characters
                 else:
-                    group = "%ss" % entity_type # eg. Shots
+                    group = "%ss" % entity_type  # eg. Shots
 
                 # it is an asset, so group by asset type
                 if group not in groups:
@@ -85,7 +84,7 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
 
         if tank.util.get_published_file_entity_type(self._app.tank) == "PublishedFile":
             published_file_type_field = "published_file_type"
-        else:# == "TankPublishedFile"
+        else:  # == "TankPublishedFile"
             published_file_type_field = "tank_type"
 
         # now iterate through the groups
@@ -105,7 +104,7 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
                           "node_type": d["node_type"],
                           "path": d["path"],
                           "template": d["template"],
-                          "fields": d["fields"], 
+                          "fields": d["fields"],
                           "sg_data": d.get("sg_data", None),
                           "seq_str": d.get("seq_str", None)}
 
@@ -117,39 +116,39 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
                         sg_data = d["sg_data"]
                         # print "SG_DATA: {}".format(sg_data)
                         step = sg_data.get("task.Task.step.Step.code", None)
-                        if step is not None:                        
-                            details.append( self._make_row("Item", "%s, Version %d, %s Task" % (sg_data["name"], sg_data["version_number"], step)) )
+                        if step is not None:
+                            details.append(self._make_row("Item", "%s, Version %d, %s Task" % (sg_data["name"], sg_data["version_number"], step)))
                         else:
-                            details.append( self._make_row("Item", "%s, Version %d" % (sg_data["name"], sg_data["version_number"])) )
+                            details.append(self._make_row("Item", "%s, Version %d" % (sg_data["name"], sg_data["version_number"])))
 
                         # see if this publish is associated with an entity
                         linked_entity = sg_data.get("entity")
                         if linked_entity:
-                            details.append( self._make_row(linked_entity["type"], linked_entity["name"]) )
+                            details.append(self._make_row(linked_entity["type"], linked_entity["name"]))
 
                         # does it have a tank type ?
                         if sg_data.get(published_file_type_field):
-                            details.append( self._make_row("Type", sg_data.get(published_file_type_field).get("name")))
+                            details.append(self._make_row("Type", sg_data.get(published_file_type_field).get("name")))
                 else:
                     if d["fields"] is not None:
-                        details.append(self._make_row("Version", d["fields"]["version"] ))
+                        details.append(self._make_row("Version", d["fields"]["version"]))
 
                         # display some key fields in the widget
                         # todo: make this more generic?
                         relevant_fields = ["Shot", "Asset", "Step", "Sequence", "name"]
 
-                        for (k,v) in d["fields"].items():
+                        for (k, v) in d["fields"].items():
                             # only show relevant fields - a bit of a hack
                             if k in relevant_fields:
-                                details.append( self._make_row(k,v) )
-               
+                                details.append(self._make_row(k, v))
+
                 # add full path for for everything not published
                 if not details:
-                    details.append( self._make_row("Path", d["path"]))
+                    details.append(self._make_row("Path", d["path"]))
                 # else:
                 #     details.append( self._make_row("File", os.path.basename(d["path"])))
-                
-                details.append( self._make_row("Node", d["node_name"]))
+
+                details.append(self._make_row("Node", d["node_name"]))
                 inner = "".join(details)
 
                 i.set_details("<table>%s</table>" % inner)
