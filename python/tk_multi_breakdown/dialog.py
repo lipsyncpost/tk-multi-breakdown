@@ -18,8 +18,8 @@ import threading
 from tank.platform.qt import QtCore, QtGui
 from .ui.dialog import Ui_Dialog
 
-class AppDialog(QtGui.QWidget):
 
+class AppDialog(QtGui.QWidget):
 
     def __init__(self, app):
         QtGui.QWidget.__init__(self)
@@ -42,7 +42,6 @@ class AppDialog(QtGui.QWidget):
         # load data from shotgun
         self.setup_scene_list()
 
-
     ########################################################################################
     # make sure we trap when the dialog is closed so that we can shut down
     # our threads. Nuke does not do proper cleanup on exit.
@@ -57,12 +56,11 @@ class AppDialog(QtGui.QWidget):
 
     def select_all_red(self):
         for x in self.ui.browser.get_items():
-            try: # hack - all items arent breakdown nodes
+            try:  # hack - all items arent breakdown nodes
                 if x.is_out_of_date() and not x.is_selected():
                     self.ui.browser.select(x)
             except:
                 pass
-
 
     def update_items(self):
 
@@ -74,7 +72,7 @@ class AppDialog(QtGui.QWidget):
 
         data = []
         for x in curr_selection:
-            if x.is_latest_version() is None or x.is_latest_version() == True:
+            if x.is_latest_version() is None or x.is_latest_version() is True:
                 # either unloaded or up to date
                 continue
 
@@ -90,13 +88,13 @@ class AppDialog(QtGui.QWidget):
                 new_fields["version"] = latest_version
                 new_path = x.data["template"].apply_fields(new_fields)
             else:
-            # calculate path using the Shotgun Publish Data
+                # calculate path using the Shotgun Publish Data
                 sg_filter = [['project', 'is', x.data["sg_data"]['project']],
                              ['entity', 'is', x.data["sg_data"]['entity']],
                              ['task', 'is', x.data["sg_data"]['task']],
                              ['published_file_type', 'is', x.data["sg_data"]['published_file_type']],
                              ['name', 'is', x.data["sg_data"]['name']]
-                            ]
+                             ]
                 sg_fields = ['path', 'path_cache', 'entity', 'name', 'version_number']
 
                 pf_list = self._app.shotgun.find('PublishedFile', sg_filter, sg_fields)
@@ -119,7 +117,8 @@ class AppDialog(QtGui.QWidget):
                 # replace normalized path pattern with what we gathered earlier or hashes
                 seq_pattern = re.compile(r'(\%+\d+d)')
                 if seq_pattern.search(new_path):
-                    new_path = seq_pattern.sub(x.data.get('seq_str', '####'), new_path)
+                    if x.data.get('seq_str'):
+                        new_path = seq_pattern.sub(x.data.get('seq_str'), new_path)
                 d = {}
                 d["node"] = x.data["node_name"]
                 d["type"] = x.data["node_type"]
@@ -131,7 +130,6 @@ class AppDialog(QtGui.QWidget):
 
         # finally refresh the UI
         self.setup_scene_list()
-
 
     def setup_scene_list(self):
         self.ui.browser.clear()
@@ -155,6 +153,3 @@ class AppDialog(QtGui.QWidget):
             d["show_green"] = True
 
         self.ui.browser.load(d)
-
-
-
