@@ -75,43 +75,47 @@ class AppDialog(QtGui.QWidget):
             if x.is_latest_version() is None or x.is_latest_version() is True:
                 # either unloaded or up to date
                 continue
-
-            latest_version = x.get_latest_version_number()
-            if latest_version is None:
-                continue
-
-            new_path = ""
-
-            # calculate path based on latest version using templates and fields
-            if x.data["fields"] is not None and x.data["template"] is not None:
-                new_fields = copy.deepcopy(x.data["fields"])
-                new_fields["version"] = latest_version
-                new_path = x.data["template"].apply_fields(new_fields)
+            
+            # need to manage cameras in a different way due to their unique template
+            if "camera_version" in x.data["fields"]:
+                new_path = x.get_latest_camera()
             else:
-                # calculate path using the Shotgun Publish Data
-                sg_filter = [['project', 'is', x.data["sg_data"]['project']],
-                             ['entity', 'is', x.data["sg_data"]['entity']],
-                             ['task', 'is', x.data["sg_data"]['task']],
-                             ['published_file_type', 'is', x.data["sg_data"]['published_file_type']],
-                             ['name', 'is', x.data["sg_data"]['name']]
-                             ]
-                sg_fields = ['path', 'path_cache', 'entity', 'name', 'version_number']
+                latest_version = x.get_latest_version_number()
+                if latest_version is None:
+                    continue
 
-                pf_list = self._app.shotgun.find('PublishedFile', sg_filter, sg_fields)
+                new_path = ""
 
-                if len(pf_list):
-                    # get the latest version
-                    for p in pf_list:
-                        if p.get('version_number') == latest_version:
-                            # version up current path with the latest version number
-                            version_pattern = re.compile(r'[\/|\.|_]v(?P<version>\d+)')
-                            version_result = version_pattern.search(x.data['path'])
-                            if version_result:
-                                version_up_path = x.data['path'].replace(version_result.group('version'), str(latest_version).zfill(3))
-                                # if the version up path matches the latest path, we're good
-                                if version_up_path == p["path"]["local_path"]:
-                                    new_path = p["path"]["local_path"]
-                                    break
+                # calculate path based on latest version using templates and fields
+                if x.data["fields"] is not None and x.data["template"] is not None:
+                    new_fields = copy.deepcopy(x.data["fields"])
+                    new_fields["version"] = latest_version
+                    new_path = x.data["template"].apply_fields(new_fields)
+                else:
+                    # calculate path using the Shotgun Publish Data
+                    sg_filter = [['project', 'is', x.data["sg_data"]['project']],
+                                ['entity', 'is', x.data["sg_data"]['entity']],
+                                ['task', 'is', x.data["sg_data"]['task']],
+                                ['published_file_type', 'is', x.data["sg_data"]['published_file_type']],
+                                ['name', 'is', x.data["sg_data"]['name']]
+                                ]
+                    sg_fields = ['path', 'path_cache', 'entity', 'name', 'version_number']
+
+                    pf_list = self._app.shotgun.find('PublishedFile', sg_filter, sg_fields)
+
+                    if len(pf_list):
+                        # get the latest version
+                        for p in pf_list:
+                            if p.get('version_number') == latest_version:
+                                # version up current path with the latest version number
+                                version_pattern = re.compile(r'[\/|\.|_]v(?P<version>\d+)')
+                                version_result = version_pattern.search(x.data['path'])
+                                if version_result:
+                                    version_up_path = x.data['path'].replace(version_result.group('version'), str(latest_version).zfill(3))
+                                    # if the version up path matches the latest path, we're good
+                                    if version_up_path == p["path"]["local_path"]:
+                                        new_path = p["path"]["local_path"]
+                                        break
 
             if new_path:
                 # replace normalized path pattern with what we gathered earlier or hashes

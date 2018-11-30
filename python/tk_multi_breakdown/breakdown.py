@@ -244,8 +244,14 @@ def compute_highest_version(template, curr_fields, sg_data=None):
             if key.is_abstract:
                 abstract_keys.add(key_name)
 
-        # skip keys are all abstract keys + 'version' & 'eye'
-        skip_keys = [k for k in abstract_keys] + [VERSION_KEY, "eye"]
+        # skip keys are all abstract keys + 'version' & 'eye' and 'camera_version' & 'Step' if a camera
+        if "camera_version" in curr_fields:
+            # set the version key
+            VERSION_KEY = "camera_version"            
+            skip_keys = [k for k in abstract_keys] + [VERSION_KEY, "eye", "version", "Step"]
+        else:
+            VERSION_KEY = "version"
+            skip_keys = [k for k in abstract_keys] + [VERSION_KEY, "eye"]
 
         # then find all files, skipping these keys
         all_versions = app.tank.paths_from_template(template, curr_fields, skip_keys=skip_keys)
