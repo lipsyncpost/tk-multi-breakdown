@@ -171,3 +171,37 @@ class BreakdownListItem(browser_widget.ListItem):
                 self.setVisible(False)
             if data["up_to_date"] == False and self._show_red == False:
                 self.setVisible(False)
+
+    def get_latest_camera(self):
+        """
+        Get the file path of the highest camera version found on disk.
+        The template key containing the version number is assumed to be named {camera_version}.
+
+        This will perform a scan on disk to determine the highest version.
+
+        :returns: String containing the camera file path
+        """
+        app = tank.platform.current_bundle()
+
+        # remove keys that have a variable value in the path
+        fields = {k: self._fields[k] for k in self._fields if k not in ["version", "Step", "camera_version", "eye"]}
+
+        # then find all files with these fields
+        all_versions = app.tank.abstract_paths_from_template(self._template, fields)
+
+        # if we didn't find anything then something has gone wrong with our
+        # logic as we should have at least one file so error out:
+        # TODO - this should be handled more cleanly!
+        if not all_versions:
+            raise TankError("Failed to find any files!")
+
+        # now look for the highest version number...
+        highest_version = -1
+        latest_camera_file_path = ""
+        for ver in all_versions:
+            ver_fields = self._template.get_fields(ver)
+            if ver_fields["camera_version"] > highest_version:
+                highest_version = ver_fields["camera_version"]
+                latest_camera_file_path = ver
+
+        return latest_camera_file_path
