@@ -94,6 +94,8 @@ def get_breakdown_items():
         node_name = scene_object.get("node")
         node_type = scene_object.get("type")
         file_name = scene_object.get("path").replace("/", os.path.sep)
+        # replace multiple slashes before jobs to just one
+        file_name = re.sub(r'^/+jobs', '/jobs', file_name)
 
         # print "node: {}, type: {}, path: {}".format(node_name, node_type, file_name)
 
