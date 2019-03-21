@@ -77,7 +77,7 @@ class AppDialog(QtGui.QWidget):
                 continue
             
             # need to manage cameras in a different way due to their unique template
-            if "camera_version" in x.data["fields"]:
+            if x.data["fields"] is not None and "camera_version" in x.data["fields"]:
                 new_path = x.get_latest_camera()
             else:
                 latest_version = x.get_latest_version_number()
