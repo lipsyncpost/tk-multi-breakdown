@@ -110,6 +110,13 @@ def get_breakdown_items():
         if matching_template:
             # see if we have a version number
             fields = matching_template.get_fields(file_name)
+            
+            # hack to fix shotgun resolving pub_task and pub_name to be the same
+            if fields.get("pub_task") is not None and fields.get("pub_name") is not None:
+                if fields.get("pub_task") == fields.get("pub_name"):
+                    # remove pub task key
+                    fields.pop("pub_task")
+
             if VERSION_KEY in fields:
 
                 # now the fields are the raw breakdown of the path in the read node.
