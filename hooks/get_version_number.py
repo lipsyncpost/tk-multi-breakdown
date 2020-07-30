@@ -34,42 +34,73 @@ class GetVersionNumber(HookBaseClass):
         :returns: The highest version number found
         :rtype: int
         """
-        # calculate visibility
-        # check if this is the latest item
+        self._app = self.parent
+        highest_version = -1
 
-        # note - have to do some tricks here to get sequences and stereo working
-        # need to fix this in Tank platform
+        if template is not None:
+            # calculate visibility
+            # check if this is the latest item
 
-        # get all eyes, all frames and all versions
-        # potentially a HUGE glob, so may be slow...
-        # todo: better support for sequence iterations
-        #       by using the abstract iteration methods
+            # note - have to do some tricks here to get sequences and stereo working
+            # need to fix this in Tank platform
 
-        # first, find all abstract (Sequence) keys from the template:
-        abstract_keys = set()
-        for key_name, key in template.keys.items():
-            if key.is_abstract:
-                abstract_keys.add(key_name)
+            # get all eyes, all frames and all versions
+            # potentially a HUGE glob, so may be slow...
+            # todo: better support for sequence iterations
+            #       by using the abstract iteration methods
 
-        # skip keys are all abstract keys + 'version' & 'eye'
-        skip_keys = [k for k in abstract_keys] + [VERSION_KEY, "eye"]
+            # first, find all abstract (Sequence) keys from the template:
+            abstract_keys = set()
+            for key_name, key in template.keys.items():
+                if key.is_abstract:
+                    abstract_keys.add(key_name)
 
-        # then find all files, skipping these keys
-        all_versions = self.sgtk.paths_from_template(
-            template, curr_fields, skip_keys=skip_keys
-        )
+            # skip keys are all abstract keys + 'version' & 'eye' and 'camera_version' & 'Step' if a camera
+            if "camera_version" in curr_fields:
+                # set the version key
+                VERSION_KEY = "camera_version"            
+                skip_keys = [k for k in abstract_keys] + [VERSION_KEY, "eye", "version", "Step"]
+            else:
+                VERSION_KEY = "version"
+                skip_keys = [k for k in abstract_keys] + [VERSION_KEY, "eye"]
 
-        # if we didn't find anything then something has gone wrong with our
-        # logic as we should have at least one file so error out:
-        # TODO - this should be handled more cleanly!
-        if not all_versions:
-            raise TankError("Failed to find any files!")
+            # then find all files, skipping these keys
+            all_versions = self.sgtk.paths_from_template(
+                template, curr_fields, skip_keys=skip_keys
+            )
 
-        # now look for the highest version number...
-        highest_version = 0
-        for ver in all_versions:
-            curr_fields = template.get_fields(ver)
-            if curr_fields[VERSION_KEY] > highest_version:
-                highest_version = curr_fields[VERSION_KEY]
+            # if we didn't find anything then something has gone wrong with our
+            # logic as we should have at least one file so error out:
+            # TODO - this should be handled more cleanly!
+            if not all_versions:
+                raise TankError("Failed to find any files!")
+
+            # now look for the highest version number...
+            highest_version = 0
+            for ver in all_versions:
+                curr_fields = template.get_fields(ver)
+                if curr_fields[VERSION_KEY] > highest_version:
+                    highest_version = curr_fields[VERSION_KEY]
+        else:
+            # we're getting the latest version directly from Shotgun using info Publish data
+            if kwargs.get('sg_data') is not None:
+                sg_data = kwargs.get('sg_data')
+
+                sg_filter = [['project', 'is', sg_data['project']],
+                            ['entity', 'is', sg_data['entity']],
+                            ['task', 'is', sg_data['task']],
+                            ['published_file_type', 'is', sg_data['published_file_type']],
+                            ['name', 'is', sg_data['name']]
+                            ]
+                sg_fields = ['path', 'path_cache', 'entity', 'name', 'version_number']
+
+                pf_list = self._app.shotgun.find('PublishedFile', sg_filter, sg_fields)
+
+                # now look for the highest version number...
+                if len(pf_list):
+                    for p in pf_list:
+                        version_number = p.get('version_number', -1)
+                        if version_number > highest_version:
+                            highest_version = version_number
 
         return highest_version
