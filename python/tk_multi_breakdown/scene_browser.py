@@ -8,33 +8,52 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-import tank
-import os
-import sys
-import datetime
-import threading
-import tank
 
-from tank.platform.qt import QtCore, QtGui
-
+import sgtk
+from sgtk.platform.qt import QtCore
 from . import breakdown
 
-browser_widget = tank.platform.import_framework("tk-framework-widget", "browser_widget")
+
+browser_widget = sgtk.platform.import_framework("tk-framework-widget", "browser_widget")
+shotgun_globals = sgtk.platform.import_framework(
+    "tk-framework-shotgunutils", "shotgun_globals"
+)
 
 from .breakdown_list_item import BreakdownListItem
 
+
 class SceneBrowserWidget(browser_widget.BrowserWidget):
+
+    _item_work_completed = QtCore.Signal(str, object)
+    _item_work_failed = QtCore.Signal(str, str)
 
     def __init__(self, parent=None):
         browser_widget.BrowserWidget.__init__(self, parent)
-        self._app = self.parent
 
     def get_data(self, data):
         items = breakdown.get_breakdown_items()
-        return {"items": items, "show_red": data["show_red"], "show_green": data["show_green"]}
+        return {
+            "items": items,
+            "show_red": data["show_red"],
+            "show_green": data["show_green"],
+        }
 
     def _make_row(self, first, second):
-        return "<tr><td><b>%s</b>&nbsp;&nbsp;&nbsp;</td><td>%s</td></tr>" % (first, second)
+        return "<tr><td><b>%s</b>&nbsp;&nbsp;&nbsp;</td><td>%s</td></tr>" % (
+            first,
+            second,
+        )
+
+    def set_app(self, app):
+        browser_widget.BrowserWidget.set_app(self, app)
+        # For some reason connecting the worker signal directly to the child items' slots causes a
+        # segmentation fault when there are many items. But re-emitting a local signal works fine
+        self._worker.work_completed.connect(
+            lambda uid, data: self._item_work_completed.emit(uid, data)
+        )
+        self._worker.work_failure.connect(
+            lambda uid, msg: self._item_work_failed.emit(uid, msg)
+        )
 
     def process_result(self, result):
 
@@ -82,7 +101,7 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
         ################################################################################
         # PASS 2 - display the content of all groups
 
-        if tank.util.get_published_file_entity_type(self._app.tank) == "PublishedFile":
+        if sgtk.util.get_published_file_entity_type(self._app.sgtk) == "PublishedFile":
             published_file_type_field = "published_file_type"
         else:  # == "TankPublishedFile"
             published_file_type_field = "tank_type"
@@ -100,35 +119,58 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
                 # provide a limited amount of data for receivers via the
                 # data dictionary on
                 # the item object
-                i.data = {"node_name": d["node_name"],
-                          "node_type": d["node_type"],
-                          "path": d["path"],
-                          "template": d["template"],
-                          "fields": d["fields"],
-                          "sg_data": d.get("sg_data", None),
-                          "seq_str": d.get("seq_str", None)}
+                i.data = {
+                    "node_name": d["node_name"],
+                    "node_type": d["node_type"],
+                    "template": d["template"],
+                    "fields": d["fields"],
+                    "sg_data": d.get("sg_data", None),
+                    "seq_str": d.get("seq_str", None)
+                }
 
                 # populate the description
                 details = []
 
-                if "sg_data" in d:
-                    if d["sg_data"] is not None:
-                        sg_data = d["sg_data"]
-                        # print "SG_DATA: {}".format(sg_data)
-                        step = sg_data.get("task.Task.step.Step.code", None)
-                        if step is not None:
-                            details.append(self._make_row("Item", "%s, Version %d, %s Task" % (sg_data["name"], sg_data["version_number"], step)))
-                        else:
-                            details.append(self._make_row("Item", "%s, Version %d" % (sg_data["name"], sg_data["version_number"])))
+                if d.get("sg_data"):
 
-                        # see if this publish is associated with an entity
-                        linked_entity = sg_data.get("entity")
-                        if linked_entity:
-                            details.append(self._make_row(linked_entity["type"], linked_entity["name"]))
+                    sg_data = d["sg_data"]
+                    step = sg_data.get("task.Task.step.Step.code", None)
+                    if step is not None:
+                        details.append(
+                            self._make_row(
+                            "Item",
+                            "%s, Version %d, %s Task"
+                            % (sg_data["name"], sg_data["version_number"], step)
+                            )
+                        )
+                    else:
+                        details.append(
+                            self._make_row(
+                                "Item",
+                                "%s, Version %d"
+                                % (sg_data["name"], sg_data["version_number"]),
+                            )
+                        )
 
-                        # does it have a tank type ?
-                        if sg_data.get(published_file_type_field):
-                            details.append(self._make_row("Type", sg_data.get(published_file_type_field).get("name")))
+                    # see if this publish is associated with an entity
+                    linked_entity = sg_data.get("entity")
+                    if linked_entity:
+                        display_name = shotgun_globals.get_type_display_name(
+                            linked_entity["type"]
+                        )
+
+                        details.append(
+                            self._make_row(display_name, linked_entity["name"])
+                        )
+
+                    # does it have a tank type ?
+                    if sg_data.get(published_file_type_field):
+                        details.append(
+                            self._make_row(
+                                "Type",
+                                sg_data.get(published_file_type_field).get("name"),
+                            )
+                        )
                 else:
                     if d["fields"] is not None:
                         details.append(self._make_row("Version", d["fields"]["version"]))
@@ -142,12 +184,9 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
                             if k in relevant_fields:
                                 details.append(self._make_row(k, v))
 
-                # add full path for for everything not published
+                #  add full path for for everything not published
                 if not details:
                     details.append(self._make_row("Path", d["path"]))
-                # else:
-                #     details.append( self._make_row("File", os.path.basename(d["path"])))
-
                 details.append(self._make_row("Node", d["node_name"]))
                 inner = "".join(details)
 
@@ -155,8 +194,10 @@ class SceneBrowserWidget(browser_widget.BrowserWidget):
 
                 # finally, ask the node to calculate its red-green status
                 # this will happen asynchronously.
-                i.calculate_status(d["template"],
-                                   d["fields"],
-                                   result["show_red"],
-                                   result["show_green"],
-                                   d.get("sg_data", None))
+                i.calculate_status(
+                    d["template"],
+                    d["fields"],
+                    result["show_red"],
+                    result["show_green"],
+                    d.get("sg_data", None),
+                )

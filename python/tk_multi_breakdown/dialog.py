@@ -8,19 +8,14 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-import tank
 import copy
-import os
 import re
-import sys
-import threading
 
-from tank.platform.qt import QtCore, QtGui
+from sgtk.platform.qt import QtGui
 from .ui.dialog import Ui_Dialog
 
 
 class AppDialog(QtGui.QWidget):
-
     def __init__(self, app):
         QtGui.QWidget.__init__(self)
         self._app = app
@@ -67,7 +62,9 @@ class AppDialog(QtGui.QWidget):
         curr_selection = self.ui.browser.get_selected_items()
 
         if len(curr_selection) == 0:
-            QtGui.QMessageBox.information(self, "Please select", "Please select items to update!")
+            QtGui.QMessageBox.information(
+                self, "Please select", "Please select items to update!"
+            )
             return
 
         data = []
